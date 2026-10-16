@@ -32,7 +32,10 @@ const initials = (name: string) => name.split(" ").map((part) => part[0]).slice(
 const avatars = ["#dce9df", "#eee4d8", "#dce4ef", "#f0e0dd", "#e3e0ef"];
 const revenueSeries = monthlyRevenueData;
 const sessionStorageKey = "axionix-session";
+const projectStorageKey = "axionix-projects";
+const contractorStorageKey = "axionix-contractors";
 const SMALL_PROJECT_THRESHOLD = 500000;
+type UserRole = "admin" | "user";
 const getBdRate = (projectValue: number, rules: typeof defaultCommissionRules) => projectValue <= SMALL_PROJECT_THRESHOLD ? rules.bdSmall : rules.bd;
 const nameFromEmail = (email: string) => email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) || "User";
 
@@ -91,6 +94,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [role, setRole] = useState<UserRole>("admin");
   const [ruleEditing, setRuleEditing] = useState(false);
   const [financialPeriod, setFinancialPeriod] = useState("Monthly");
   const [dateRange, setDateRange] = useState("Last 6 months");
@@ -105,6 +109,26 @@ export default function Home() {
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(""), 2800); return () => window.clearTimeout(timer); }, [toast]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      const storedProjects = window.localStorage.getItem(projectStorageKey);
+      if (storedProjects) {
+        try {
+          const parsedProjects: unknown = JSON.parse(storedProjects);
+          if (Array.isArray(parsedProjects)) setProjects(parsedProjects as Project[]);
+          else window.localStorage.removeItem(projectStorageKey);
+        } catch {
+          window.localStorage.removeItem(projectStorageKey);
+        }
+      }
+      const storedContractors = window.localStorage.getItem(contractorStorageKey);
+      if (storedContractors) {
+        try {
+          const parsedContractors: unknown = JSON.parse(storedContractors);
+          if (Array.isArray(parsedContractors)) setContractors(parsedContractors as Contractor[]);
+          else window.localStorage.removeItem(contractorStorageKey);
+        } catch {
+          window.localStorage.removeItem(contractorStorageKey);
+        }
+      }
       const storedSession = window.localStorage.getItem(sessionStorageKey);
       if (storedSession) {
         try {
@@ -112,7 +136,9 @@ export default function Home() {
           if (typeof session === "object" && session !== null && "email" in session && typeof session.email === "string" && session.email.includes("@")) {
             const email = session.email;
             const name = "name" in session && typeof session.name === "string" ? session.name : nameFromEmail(email);
+            const sessionRole = "role" in session && session.role === "user" ? "user" : "admin";
             setProfile({ name, email });
+            setRole(sessionRole);
             setAuthenticated(true);
           } else {
             window.localStorage.removeItem(sessionStorageKey);
@@ -125,6 +151,12 @@ export default function Home() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+  useEffect(() => {
+    if (authReady) window.localStorage.setItem(projectStorageKey, JSON.stringify(projects));
+  }, [projects, authReady]);
+  useEffect(() => {
+    if (authReady) window.localStorage.setItem(contractorStorageKey, JSON.stringify(contractors));
+  }, [contractors, authReady]);
 
   const filteredProjects = useMemo(() => projects.filter((project) => {
     const search = query.toLowerCase();
@@ -150,7 +182,7 @@ export default function Home() {
       id: editingProject?.id ?? `AX-${2409 + projects.length - initialProjects.length}`,
       client: String(form.get("client")), title: String(form.get("title")), value: Number(form.get("value")),
       bdSource: String(form.get("bdSource")), profileOwner: String(form.get("profileOwner")),
-      execution: String(form.get("execution")).split(",").map((name) => name.trim()).filter(Boolean),
+      execution: form.getAll("execution").map(String),
       executionOverride: editingProject?.executionOverride,
       deadline: String(form.get("deadline")), status: String(form.get("status")) as ProjectStatus,
     };
@@ -201,14 +233,30 @@ export default function Home() {
   const title = activePage === "Dashboard" ? `Good morning, ${profile.name.split(" ")[0]}` : activePage;
   const subtitle = activePage === "Dashboard" ? "Here’s what’s happening across your agency today." : ({ Projects: "Track client work, delivery progress, and project economics.", Contractors: "Manage your team, relationships, and contractor profiles.", Payouts: "Review and manage contractor commission payouts.", Financials: "A clear view of revenue, costs, and retained earnings.", "Commission Rules": "Configure how project revenue is shared across your team.", Settings: "Manage your personal preferences and workspace experience." } as Record<string, string>)[activePage];
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = (event: FormEvent<HTMLFormElement>, selectedRole: UserRole): string | null => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email")).trim().toLowerCase();
-    const name = nameFromEmail(email);
-    window.localStorage.setItem(sessionStorageKey, JSON.stringify({ name, email }));
+    let contractor = selectedRole === "user" ? contractors.find((person) => person.contact.toLowerCase() === email) : undefined;
+    if (selectedRole === "user" && !contractor) {
+      const nextContractorNumber = contractors.reduce((highest, person) => Math.max(highest, Number(person.id.match(/^CT-(\d+)$/)?.[1] ?? 0)), 0) + 1;
+      contractor = {
+        id: `CT-${String(nextContractorNumber).padStart(3, "0")}`,
+        name: String(form.get("name") ?? "").trim() || nameFromEmail(email),
+        role: "Contractor",
+        skills: [],
+        status: "Active",
+        ownership: [],
+        contact: email,
+      };
+      setContractors((current) => current.some((person) => person.contact.toLowerCase() === email) ? current : [contractor!, ...current]);
+    }
+    const name = contractor?.name ?? nameFromEmail(email);
+    window.localStorage.setItem(sessionStorageKey, JSON.stringify({ name, email, role: selectedRole }));
     setProfile({ name, email });
+    setRole(selectedRole);
     setAuthenticated(true);
+    return null;
   };
 
   const handleLogout = () => {
@@ -219,6 +267,7 @@ export default function Home() {
 
   if (!authReady) return <div className="auth-loading" aria-label="Checking session" />;
   if (!authenticated) return <LoginPage onLogin={handleLogin} />;
+  if (role === "user") return <UserPortal profile={profile} projects={projects.filter((project) => project.execution.includes(profile.name))} onLogout={handleLogout} />;
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
@@ -265,8 +314,10 @@ export default function Home() {
   </div>;
 }
 
-function LoginPage({ onLogin }: { onLogin: (event: FormEvent<HTMLFormElement>) => void }) {
+function LoginPage({ onLogin }: { onLogin: (event: FormEvent<HTMLFormElement>, role: UserRole) => string | null }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>("admin");
+  const [error, setError] = useState("");
 
   return <main className="auth-page">
     <section className="auth-brand-panel">
@@ -276,17 +327,34 @@ function LoginPage({ onLogin }: { onLogin: (event: FormEvent<HTMLFormElement>) =
       <div className="auth-brand-footer"><ShieldCheck size={15} /><span>Axionix Studio workspace</span><span className="auth-status-dot" /> All systems operational</div>
     </section>
     <section className="auth-form-panel">
-      <form className="auth-form" onSubmit={onLogin}>
+      <form className="auth-form" onSubmit={(event) => setError(onLogin(event, selectedRole) ?? "")}>
         <span className="auth-form-kicker">YOUR WORKSPACE</span>
         <h2>Welcome back</h2>
         <p className="auth-form-description">Sign in to continue to your agency dashboard.</p>
+        <div className="auth-role-switch" aria-label="Choose account type">
+          <button type="button" className={selectedRole === "admin" ? "active" : ""} aria-pressed={selectedRole === "admin"} onClick={() => { setSelectedRole("admin"); setError(""); }}><ShieldCheck size={14} /> Admin</button>
+          <button type="button" className={selectedRole === "user" ? "active" : ""} aria-pressed={selectedRole === "user"} onClick={() => { setSelectedRole("user"); setError(""); }}><BriefcaseBusiness size={14} /> Project user</button>
+        </div>
+        {selectedRole === "user" && <label className="auth-field"><span>Full name</span><span className="auth-input-wrap"><UserRound size={16} /><input name="name" autoComplete="name" placeholder="Your name" required /></span></label>}
         <label className="auth-field"><span>Email address</span><span className="auth-input-wrap"><Mail size={16} /><input name="email" type="email" autoComplete="email" placeholder="you@company.com" required /></span></label>
         <label className="auth-field"><span>Password</span><span className="auth-input-wrap"><LockKeyhole size={16} /><input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" required /><button className="auth-password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)}>{showPassword ? "Hide" : "Show"}</button></span></label>
         <button className="auth-submit" type="submit">Sign in <ArrowRight size={16} /></button>
-        <p className="auth-demo-note">Demo access: any valid email and password will work.</p>
+        {error ? <p className="auth-error" role="alert">{error}</p> : <p className="auth-demo-note">{selectedRole === "admin" ? "Admin demo: any valid email and password." : "Project users are added to the admin Contractors list when they sign in."}</p>}
       </form>
       <footer className="auth-form-footer"><span>© 2026 Axionix Studio</span><span>Private workspace</span></footer>
     </section>
+  </main>;
+}
+
+function UserPortal({ profile, projects, onLogout }: { profile: { name: string; email: string }; projects: Project[]; onLogout: () => void }) {
+  const activeCount = projects.filter((project) => project.status === "Active").length;
+  return <main className="user-portal">
+    <header className="user-portal-header"><div className="brand"><div className="brand-mark"><span>A</span><span>X</span></div><div className="brand-name">axionix<span>project workspace</span></div></div><div className="user-portal-account"><span className="avatar avatar-admin">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>Project user</small></span><button className="button button-secondary button-small" onClick={onLogout}><LogOut size={14} /> Sign out</button></div></header>
+    <div className="content-area user-portal-content"><div className="page-intro"><div><div className="date-kicker"><BriefcaseBusiness size={13} /> YOUR WORKSPACE</div><h1>My projects</h1><p>Projects assigned to you and their latest status.</p></div></div>
+      <div className="mini-stat-grid user-project-stats"><MiniStat label="Assigned projects" value={String(projects.length).padStart(2, "0")} icon={<BriefcaseBusiness size={16} />} /><MiniStat label="Active projects" value={String(activeCount).padStart(2, "0")} icon={<Activity size={16} />} /><MiniStat label="Completed projects" value={String(projects.length - activeCount).padStart(2, "0")} icon={<CheckCircle2 size={16} />} /></div>
+      <Panel className="user-project-panel"><div className="section-heading"><div><h2>Assigned to me</h2><p>{projects.length} projects</p></div></div>{projects.length ? <div className="user-project-list">{projects.map((project) => <article className="user-project-row" key={project.id}><span className={`client-logo logo-${project.id.slice(-1)}`}>{initials(project.client)}</span><div className="user-project-main"><strong>{project.title}</strong><span>{project.client} · {project.id}</span></div><div className="user-project-assignees"><small>ASSIGNED TEAM</small><span>{project.execution.join(", ")}</span></div><div className="user-project-deadline"><small>DEADLINE</small><span>{new Date(`${project.deadline}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span></div><StatusBadge status={project.status} /></article>)}</div> : <EmptyState title="No projects assigned yet" body="Your administrator's new project assignments will appear here." />}</Panel>
+      <footer className="page-footer"><span>© 2026 Axionix Studio</span><span><span className="system-dot" /> Workspace up to date</span></footer>
+    </div>
   </main>;
 }
 
@@ -325,7 +393,7 @@ function StatCard({ label, value, delta, icon, tint, trend, foot }: { label: str
 
 function ProjectTable({ projects, onSelect, compact = false }: { projects: Project[]; onSelect: (project: Project) => void; compact?: boolean }) {
   if (!projects.length) return <EmptyState title="No projects found" body="Try adjusting your search or filters." />;
-  return <div className="table-scroll"><table><thead><tr><th>PROJECT / CLIENT</th><th>PROJECT VALUE</th>{!compact && <><th>BD SOURCE</th><th>PROFILE OWNER</th><th>EXECUTION TEAM</th><th>DEADLINE</th></>}<th>STATUS</th>{!compact && <><th>EST. PAYOUT</th><th /></>}</tr></thead><tbody>{projects.map((project) => <tr key={project.id} className="clickable-row" onClick={() => onSelect(project)}><td><div className="project-cell"><span className={`client-logo logo-${project.id.slice(-1)}`}>{initials(project.client)}</span><span><strong>{project.client}</strong><small>{project.id} · {project.title}</small></span></div></td><td className="amount-cell">{money(project.value)}</td>{!compact && <><td>{project.bdSource}</td><td>{project.profileOwner}</td><td><div className="avatar-stack">{project.execution.map((name, index) => <span key={name} title={name} style={{ background: avatars[index % avatars.length] }}>{initials(name)}</span>)}</div></td><td>{new Date(`${project.deadline}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td></>}<td><StatusBadge status={project.status} /></td>{!compact && <><td>{money(Math.round(project.value * 0.55))}</td><td><button className="row-action" aria-label={`Open ${project.client}`}><MoreHorizontal size={17} /></button></td></>}</tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table><thead><tr><th>PROJECT / CLIENT</th><th>PROJECT VALUE</th>{!compact && <><th>BD SOURCE</th><th>PROFILE OWNER</th><th>ASSIGNED TO</th><th>DEADLINE</th></>}<th>STATUS</th>{!compact && <><th>EST. PAYOUT</th><th /></>}</tr></thead><tbody>{projects.map((project) => <tr key={project.id} className="clickable-row" onClick={() => onSelect(project)}><td><div className="project-cell"><span className={`client-logo logo-${project.id.slice(-1)}`}>{initials(project.client)}</span><span><strong>{project.client}</strong><small>{project.id} · {project.title}</small></span></div></td><td className="amount-cell">{money(project.value)}</td>{!compact && <><td>{project.bdSource}</td><td>{project.profileOwner}</td><td><span className="assignment-names">{project.execution.join(", ") || "Unassigned"}</span></td><td>{new Date(`${project.deadline}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td></>}<td><StatusBadge status={project.status} /></td>{!compact && <><td>{money(Math.round(project.value * 0.55))}</td><td><button className="row-action" aria-label={`Open ${project.client}`}><MoreHorizontal size={17} /></button></td></>}</tr>)}</tbody></table></div>;
 }
 
 function PayoutTable({ payouts, projects = initialProjects, onSelect, compact = false }: { payouts: Payout[]; projects?: Project[]; onSelect: (payout: Payout) => void; compact?: boolean }) {
@@ -387,8 +455,20 @@ function SettingsView({ profile, setProfile, appearance, setAppearance, notifica
 }
 
 function ProjectForm({ project, contractors, rules, onSubmit, onCancel }: { project: Project | null; contractors: Contractor[]; rules: typeof defaultCommissionRules; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void }) {
-  const defaultTeam = project?.execution.join(", ") ?? "";
-  return <form className="form-body" onSubmit={onSubmit}><div className="field-grid"><label className="field-label">Client name <span className="required">*</span><input name="client" required defaultValue={project?.client} placeholder="e.g. Northstar Labs" /></label><label className="field-label">Project title <span className="required">*</span><input name="title" required defaultValue={project?.title} placeholder="e.g. Brand identity & website" /></label><label className="field-label">Project value (PKR) <span className="required">*</span><input name="value" type="number" min="1" required defaultValue={project?.value} placeholder="250000" /></label><label className="field-label">BD source<input name="bdSource" defaultValue={project?.bdSource} placeholder="Team member or referral" /></label><label className="field-label">Profile owner<select name="profileOwner" defaultValue={project?.profileOwner ?? contractors.find((item) => item.role === "Profile Owner")?.name}>{contractors.filter((item) => item.status === "Active").map((person) => <option key={person.id}>{person.name}</option>)}</select></label><label className="field-label">Execution contractor(s)<input name="execution" defaultValue={defaultTeam} placeholder="Names separated by commas" list="contractor-list" /><datalist id="contractor-list">{contractors.map((person) => <option key={person.id} value={person.name} />)}</datalist></label><label className="field-label">Deadline <span className="required">*</span><input name="deadline" type="date" required defaultValue={project?.deadline} /></label><label className="field-label">Status<select name="status" defaultValue={project?.status ?? "Active"}><option>Active</option><option>Delivered</option><option>Paid</option></select></label></div><CommissionPreview value={project?.value ?? 0} rules={rules} /><div className="modal-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button><button className="button button-primary"><Check size={15} />{project ? "Save project" : "Create project"}</button></div></form>;
+  return <form className="form-body" onSubmit={onSubmit}>
+    <div className="field-grid">
+      <label className="field-label">Client name <span className="required">*</span><input name="client" required defaultValue={project?.client} placeholder="e.g. Northstar Labs" /></label>
+      <label className="field-label">Project title <span className="required">*</span><input name="title" required defaultValue={project?.title} placeholder="e.g. Brand identity & website" /></label>
+      <label className="field-label">Project value (PKR) <span className="required">*</span><input name="value" type="number" min="1" required defaultValue={project?.value} placeholder="250000" /></label>
+      <label className="field-label">BD source<input name="bdSource" defaultValue={project?.bdSource} placeholder="Team member or referral" /></label>
+      <label className="field-label">Profile owner<select name="profileOwner" defaultValue={project?.profileOwner ?? contractors.find((item) => item.role === "Profile Owner")?.name}>{contractors.filter((item) => item.status === "Active").map((person) => <option key={person.id}>{person.name}</option>)}</select></label>
+      <label className="field-label">Deadline <span className="required">*</span><input name="deadline" type="date" required defaultValue={project?.deadline} /></label>
+      <label className="field-label">Status<select name="status" defaultValue={project?.status ?? "Active"}><option>Active</option><option>Delivered</option><option>Paid</option></select></label>
+    </div>
+    <fieldset className="assignment-field"><legend>Assign project to</legend><div className="assignment-options">{contractors.filter((person) => person.status === "Active").map((person) => <label className="assignment-option" key={person.id}><input type="checkbox" name="execution" value={person.name} defaultChecked={project?.execution.includes(person.name)} /><span><strong>{person.name}</strong><small>{person.role}</small></span></label>)}</div></fieldset>
+    <CommissionPreview value={project?.value ?? 0} rules={rules} />
+    <div className="modal-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button><button className="button button-primary"><Check size={15} />{project ? "Save project" : "Create project"}</button></div>
+  </form>;
 }
 
 function CommissionPreview({ value, rules }: { value: number; rules: typeof defaultCommissionRules }) {
