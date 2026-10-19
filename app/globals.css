@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f5;
-  --foreground: #202721;
-  --muted: #7c867d;
-  --line: #e8ebe7;
-  --green: #42684c;
-  --green-dark: #35573e;
-  --green-soft: #edf4ee;
+  --background: #f5f9fc;
+  --foreground: #171b20;
+  --muted: #78838b;
+  --line: #e4ebf0;
+  --brand-blue: #0784b2;
+  --brand-blue-dark: #056b91;
+  --brand-blue-soft: #e8f7fc;
+  --brand-cyan: #38bde9;
   --surface: #ffffff;
   --font-sans: var(--font-geist-sans), "Segoe UI", sans-serif;
 }
@@ -316,3 +317,69 @@ tbody tr:hover { background: #fbfcfb; }
   .modal-backdrop { padding: 0; align-items: end; }.modal { width: 100%; max-height: 94vh; border-radius: 12px 12px 0 0; }.modal-wide { width: 100%; }.modal-header { padding: 14px; }.form-body, .detail-body { padding: 13px 14px 16px; }.form-body .field-grid { grid-template-columns: 1fr; }.preview-grid { grid-template-columns: repeat(2, 1fr); }.detail-topline { align-items: flex-start; flex-direction: column; }.detail-actions { width: 100%; }.detail-overview-grid { grid-template-columns: 1fr; }.detail-facts { grid-template-columns: 1fr 1fr; }.timeline { display: grid; gap: 12px; }.timeline-step:not(:last-child)::after { top: 20px; bottom: -12px; left: 9px; right: auto; width: 1px; height: auto; }.detail-bottom-actions { flex-wrap: wrap; }.detail-bottom-actions .button { flex: 1; }.contractor-profile-head { flex-wrap: wrap; }.contractor-profile-head > div:nth-child(2) { min-width: 130px; }.contractor-profile-head .detail-actions { flex-basis: 100%; }.contractor-tags { grid-template-columns: 1fr; }.contractor-metrics > div { padding: 8px 6px; }.contractor-metrics span { font-size: 7px; }.contractor-metrics strong { font-size: 10px; }.payout-detail-list { grid-template-columns: 1fr; }.modal-actions { position: sticky; bottom: -16px; padding: 10px 0 0; background: linear-gradient(transparent, white 20%); }.toast { left: 12px; right: 12px; bottom: 12px; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline-color: #55c6ec; }
+.brand-mark { background: linear-gradient(140deg, #54d0f2, #0784b2); border-radius: 9px; box-shadow: inset 0 0 0 1px #ffffff30; }
+.brand-mark span + span { color: #d9f7ff; }
+.brand-name { color: #111820; letter-spacing: .25px; }
+.brand-name span { color: #687680; letter-spacing: .15px; text-transform: none; }
+.brand-logo { display: block; width: auto; height: 34px; max-width: 185px; object-fit: contain; }
+.auth-brand .brand-logo { height: 40px; max-width: 220px; }
+.workspace-avatar { background: #e8f7fc; border-color: #d3eff9; color: #087da7; }
+.nav-item:hover { background: #f1f9fc; }
+.nav-item.nav-active { background: #e8f7fc; color: #08739a; }
+.nav-item.nav-active svg { color: #0784b2; }
+.help-icon { color: #0784b2; }
+.avatar-admin { background: #e4f5fb; border-color: #cdebf6; color: #08769d; }
+.icon-button:hover { color: #075f80; background: #eef8fc; }
+.date-kicker svg { color: #0784b2; }
+.button-primary { background: #087ca7; border-color: #087ca7; }
+.button-primary:hover { background: #056b91; }
+.text-link { color: #087ca7; }
+.text-link:hover { color: #055d7f; }
+.tint-mint { color: #087da7; background: #e8f7fc; }
+.trend-up { color: #0784b2; }
+.stat-spark i { background: #dff4fb; }
+.legend-revenue { background: #0784b2; }
+.client-logo { background: #eaf7fb; color: #08769d; border-color: #d9edf5; }
+.badge-positive { background: #e8f7fc; color: #08769d; border-color: #d7eff8; }
+.row-action:hover { background: #eaf7fb; color: #08769d; }
+.status-bar i { background: #24a8d2; }
+.view-switch button.selected, .pagination button.page-number { color: #08769d; background: #e8f7fc; border-color: #d4eff8; }
+.project-card:hover { border-color: #a9dced; box-shadow: 0 4px 12px #0784b20d; }
+.assignment-option input { accent-color: #0784b2; }
+.mini-stat-icon { color: #087da7; background: #e8f7fc; }
+.segmented-control button.active, .margin-label { background: #e8f7fc; color: #08769d; }
+.rules-lock { border-color: #d9edf5; color: #08769d; background: #f4fbfe; }
+.rule-green, .rule-execution, .side-icon { color: #087da7; background: #e8f7fc; }
+.remaining-value strong { color: #08769d; }
+.info-callout { border-color: #d9edf5; background: #f4fbfe; }
+.info-callout > span { color: #087da7; }
+.info-callout strong { color: #234b5b; }
+.settings-tab:hover { background: #f1f9fc; }
+.settings-tab.active { color: #08769d; background: #e8f7fc; }
+.system-dot { background: #25a9d4; }
+.auth-loading, .auth-page, .user-portal { background: #f5f9fc; }
+.auth-brand-panel { color: #171b20; background-color: #ffffff; background-image: linear-gradient(135deg, transparent 24%, #0784b20b 25%, #0784b20b 26%, transparent 27%, transparent 74%, #0784b20b 75%, #0784b20b 76%, transparent 77%), linear-gradient(45deg, transparent 24%, #0784b208 25%, #0784b208 26%, transparent 27%, transparent 74%, #0784b208 75%, #0784b208 76%, transparent 77%); }
+.auth-brand .brand-mark { background: linear-gradient(140deg, #54d0f2, #0784b2); color: white; }
+.auth-brand .brand-mark span + span { color: #d9f7ff; }
+.auth-brand .brand-name { color: #111820; }
+.auth-brand .brand-name span { color: #687680; }
+.auth-kicker, .auth-form-kicker { color: #087da7; }
+.auth-brand-copy h1 { color: #171b20; }
+.auth-brand-copy p { color: #657580; }
+.auth-summary { border-color: #0784b228; }
+.auth-summary > div + div { border-color: #0784b228; }
+.auth-summary strong { color: #087ca7; }
+.auth-summary span, .auth-brand-footer { color: #687984; }
+.auth-brand-footer svg { color: #0784b2; }
+.auth-status-dot { background: #24a8d2; box-shadow: 0 0 0 3px #24a8d220; }
+.auth-form-panel { background: #ffffff; }
+.auth-form-kicker { color: #087da7; }
+.auth-input-wrap:focus-within { border-color: #35aed5; box-shadow: 0 0 0 3px #35aed51c; }
+.auth-password-toggle { color: #08769d; }
+.auth-role-switch { border-color: #dcecf2; background: #f1f8fb; }
+.auth-role-switch button.active { color: #08769d; }
+.auth-submit { border-color: #087ca7; background: #087ca7; }
+.auth-submit:hover { background: #056b91; }
+.user-portal-header { border-color: #e4ebf0; }
